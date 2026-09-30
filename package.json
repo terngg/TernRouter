@@ -1,6 +1,6 @@
 {
   "name": "9router-app",
-  "version": "0.5.91",
+  "version": "0.1.0",
   "description": "TernRouter web dashboard - intelligent multi-provider AI router",
   "private": true,
   "scripts": {
