@@ -12,7 +12,7 @@ const ANTHROPIC_COMPATIBLE_DEFAULTS = {
 };
 
 function isOpenAICompatible(provider) {
-  return typeof provider === "string" && provider.startsWith(OPENAI_COMPATIBLE_PREFIX);
+  return typeof provider === "string" && (provider.startsWith(OPENAI_COMPATIBLE_PREFIX) || provider.startsWith("custom-"));
 }
 
 function isAnthropicCompatible(provider) {

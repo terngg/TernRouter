@@ -108,8 +108,8 @@ export class DefaultExecutor extends BaseExecutor {
     if (rt?.baseUrl) {
       return rt.urlSuffix ? `${rt.baseUrl}${rt.urlSuffix}` : rt.baseUrl;
     }
-    if (this.provider?.startsWith?.("openai-compatible-")) {
-      const baseUrl = credentials?.providerSpecificData?.baseUrl || OPENAI_COMPAT_BASE;
+    if (this.provider?.startsWith?.("openai-compatible-") || this.provider?.startsWith?.("custom-")) {
+      const baseUrl = credentials?.baseUrl || credentials?.providerSpecificData?.baseUrl || OPENAI_COMPAT_BASE;
       const normalized = baseUrl.replace(/\/$/, "");
       const path = resolveOpenAICompatibleApiType(this.provider, credentials) === "responses" ? "/responses" : "/chat/completions";
       return `${normalized}${path}`;
@@ -154,6 +154,17 @@ export class DefaultExecutor extends BaseExecutor {
     // Hooks run BEFORE auth so dynamic overlays can't clobber the token.
     for (const hook of desc.hooks || []) HEADER_HOOKS[hook]?.(headers, credentials);
     applyAuth(headers, desc, credentials);
+
+    if (this.provider?.startsWith?.("custom-")) {
+      if (credentials?.customHeaders) {
+        Object.assign(headers, credentials.customHeaders);
+      }
+      if (credentials?.authHeader) {
+        const prefix = credentials.authPrefix != null ? credentials.authPrefix : "Bearer ";
+        const key = credentials.apiKey || credentials.accessToken || "";
+        headers[credentials.authHeader] = prefix ? `${prefix}${key}` : key;
+      }
+    }
 
     // anthropic-compatible-* nodes serving a real Claude model sit in front of
     // Anthropic itself (a rotating multi-account proxy, a corporate gateway),

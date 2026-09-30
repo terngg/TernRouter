@@ -28,8 +28,8 @@ export class BaseExecutor {
   }
 
   buildUrl(model, stream, urlIndex = 0, credentials = null) {
-    if (this.provider?.startsWith?.("openai-compatible-")) {
-      const baseUrl = credentials?.providerSpecificData?.baseUrl || OPENAI_COMPAT_BASE;
+    if (this.provider?.startsWith?.("openai-compatible-") || this.provider?.startsWith?.("custom-")) {
+      const baseUrl = credentials?.baseUrl || credentials?.providerSpecificData?.baseUrl || OPENAI_COMPAT_BASE;
       const normalized = baseUrl.replace(/\/$/, "");
       const path = resolveOpenAICompatibleApiType(this.provider, credentials) === "responses" ? "/responses" : "/chat/completions";
       return `${normalized}${path}`;
@@ -49,6 +49,10 @@ export class BaseExecutor {
       ...this.config.headers
     };
 
+    if (this.provider?.startsWith?.("custom-") && credentials?.customHeaders) {
+      Object.assign(headers, credentials.customHeaders);
+    }
+
     if (this.provider?.startsWith?.("anthropic-compatible-")) {
       // Anthropic-compatible providers use x-api-key header
       if (credentials.apiKey) {
@@ -61,10 +65,14 @@ export class BaseExecutor {
       }
     } else {
       // Standard Bearer token auth for other providers
-      if (credentials.accessToken) {
+      if (credentials?.authHeader && credentials.authHeader !== "Authorization") {
+        const prefix = credentials.authPrefix != null ? credentials.authPrefix : "";
+        headers[credentials.authHeader] = `${prefix}${credentials.apiKey || credentials.accessToken || ""}`;
+      } else if (credentials.accessToken) {
         headers["Authorization"] = `Bearer ${credentials.accessToken}`;
       } else if (credentials.apiKey) {
-        headers["Authorization"] = `Bearer ${credentials.apiKey}`;
+        const prefix = credentials.authPrefix != null ? credentials.authPrefix : "Bearer ";
+        headers["Authorization"] = `${prefix}${credentials.apiKey}`;
       }
     }
 
@@ -97,7 +105,7 @@ export class BaseExecutor {
     return { status: response.status, message: bodyText || `HTTP ${response.status}` };
   }
 
-  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }) {
+  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null, timeoutConfig = null }) {
     const fallbackCount = this.getFallbackCount();
     let lastError = null;
     let lastStatus = 0;
@@ -133,7 +141,7 @@ export class BaseExecutor {
 
       // Abort if upstream doesn't return response headers within connection timeout
       const connectCtrl = new AbortController();
-      const timeoutMs = this.config?.timeoutMs || FETCH_CONNECT_TIMEOUT_MS;
+      const timeoutMs = timeoutConfig?.connectTimeoutMs || this.config?.timeoutMs || FETCH_CONNECT_TIMEOUT_MS;
       const connectTimer = setTimeout(() => connectCtrl.abort(new Error("fetch connect timeout")), timeoutMs);
       const mergedSignal = signal ? AbortSignal.any([signal, connectCtrl.signal]) : connectCtrl.signal;
 

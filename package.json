@@ -1,7 +1,7 @@
 {
   "name": "9router-app",
   "version": "0.5.91",
-  "description": "9Router web dashboard",
+  "description": "TernRouter web dashboard - intelligent multi-provider AI router",
   "private": true,
   "scripts": {
     "dev": "next dev --port 20127",
@@ -61,5 +61,8 @@
     "eslint-config-next": "16.1.6",
     "postcss": "^8.5.6",
     "tailwindcss": "^4"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
   }
 }

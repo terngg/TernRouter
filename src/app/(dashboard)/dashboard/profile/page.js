@@ -81,6 +81,14 @@ export default function ProfilePage() {
   const [proxyLoading, setProxyLoading] = useState(false);
   const [proxyTestLoading, setProxyTestLoading] = useState(false);
 
+  const [timeoutForm, setTimeoutForm] = useState({
+    smartRoutingEnabled: true,
+    requestTimeoutMs: "120000",
+    connectTimeoutMs: "10000",
+    streamInactivityTimeoutMs: "30000",
+  });
+  const [timeoutStatus, setTimeoutStatus] = useState({ type: "", message: "" });
+
   const [isRemoteHost, setIsRemoteHost] = useState(false);
   useEffect(() => {
     if (typeof window !== "undefined")
@@ -121,6 +129,12 @@ export default function ProfilePage() {
           outboundProxyEnabled: data?.outboundProxyEnabled === true,
           outboundProxyUrl: data?.outboundProxyUrl || "",
           outboundNoProxy: data?.outboundNoProxy || "",
+        });
+        setTimeoutForm({
+          smartRoutingEnabled: data?.smartRoutingEnabled !== false,
+          requestTimeoutMs: String(data?.requestTimeoutMs || 120000),
+          connectTimeoutMs: String(data?.connectTimeoutMs || 10000),
+          streamInactivityTimeoutMs: String(data?.streamInactivityTimeoutMs || 30000),
         });
         setLoading(false);
       })
@@ -340,6 +354,32 @@ export default function ProfilePage() {
       }
     } catch (err) {
       console.error("Failed to update require login:", err);
+    }
+  };
+
+  const saveTimeoutSettings = async () => {
+    try {
+      const payload = {
+        smartRoutingEnabled: timeoutForm.smartRoutingEnabled,
+        requestTimeoutMs: Number(timeoutForm.requestTimeoutMs || 120000),
+        connectTimeoutMs: Number(timeoutForm.connectTimeoutMs || 10000),
+        streamInactivityTimeoutMs: Number(timeoutForm.streamInactivityTimeoutMs || 30000),
+      };
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setSettings(prev => ({ ...prev, ...payload }));
+        setTimeoutStatus({ type: "success", message: "Timeout & Routing settings saved!" });
+        setTimeout(() => setTimeoutStatus({ type: "", message: "" }), 3000);
+      } else {
+        const d = await res.json();
+        setTimeoutStatus({ type: "error", message: d.error || "Failed to save settings" });
+      }
+    } catch (err) {
+      setTimeoutStatus({ type: "error", message: err.message });
     }
   };
 
@@ -857,6 +897,88 @@ export default function ProfilePage() {
             <span className="text-sm text-text-muted">Display language</span>
             <span className="text-2xl">{LOCALE_FLAGS[locale] || "🌐"}</span>
           </button>
+        </Card>
+
+        {/* Smart Routing & Request Timeouts */}
+        <Card>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+              <span className="material-symbols-outlined text-[20px]">timer</span>
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold">Smart Routing & Request Timeouts</h3>
+              <p className="text-xs text-text-muted">
+                Configure global model timeouts, streaming stall watchdog, and auto-routing toggle.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-4 py-2 border-b border-black/5 dark:border-white/5">
+              <div>
+                <p className="font-medium text-sm">Smart Auto Model Routing</p>
+                <p className="text-xs text-text-muted">
+                  Allow virtual models like "auto", "auto/quality", "auto/fast" to dynamically choose the best model.
+                </p>
+              </div>
+              <Toggle
+                checked={timeoutForm.smartRoutingEnabled}
+                onChange={(checked) => setTimeoutForm((prev) => ({ ...prev, smartRoutingEnabled: checked }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-text-main block mb-1">Global Request Timeout (ms)</label>
+                <Input
+                  type="number"
+                  value={timeoutForm.requestTimeoutMs}
+                  onChange={(e) => setTimeoutForm((prev) => ({ ...prev, requestTimeoutMs: e.target.value }))}
+                  placeholder="120000"
+                />
+                <p className="text-[10px] text-text-muted mt-0.5">Maximum end-to-end request duration</p>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-text-main block mb-1">Connect Timeout (ms)</label>
+                <Input
+                  type="number"
+                  value={timeoutForm.connectTimeoutMs}
+                  onChange={(e) => setTimeoutForm((prev) => ({ ...prev, connectTimeoutMs: e.target.value }))}
+                  placeholder="10000"
+                />
+                <p className="text-[10px] text-text-muted mt-0.5">Initial connection handshake limit</p>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-text-main block mb-1">Streaming Stall Timeout (ms)</label>
+                <Input
+                  type="number"
+                  value={timeoutForm.streamInactivityTimeoutMs}
+                  onChange={(e) => setTimeoutForm((prev) => ({ ...prev, streamInactivityTimeoutMs: e.target.value }))}
+                  placeholder="30000"
+                />
+                <p className="text-[10px] text-text-muted mt-0.5">Watchdog for stream silence</p>
+              </div>
+            </div>
+
+            {timeoutStatus.message && (
+              <div className={cn(
+                "p-2.5 rounded-lg text-xs font-medium",
+                timeoutStatus.type === "success"
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+              )}>
+                {timeoutStatus.message}
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <Button variant="primary" onClick={saveTimeoutSettings}>
+                Save Timeout Settings
+              </Button>
+            </div>
+          </div>
         </Card>
 
         {/* Security */}

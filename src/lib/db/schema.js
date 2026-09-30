@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -82,9 +82,82 @@ export const TABLES = {
       name: "TEXT",
       machineId: "TEXT",
       isActive: "INTEGER DEFAULT 1",
+      permissions: "TEXT",
+      projectId: "TEXT",
+      requestCount: "INTEGER DEFAULT 0",
+      totalSpend: "REAL DEFAULT 0",
       createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT",
     },
-    indexes: ["CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)"],
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)",
+      "CREATE INDEX IF NOT EXISTS idx_ak_project ON apiKeys(projectId)",
+    ],
+  },
+  projects: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      name: "TEXT UNIQUE NOT NULL",
+      description: "TEXT",
+      defaultModel: "TEXT",
+      routingMode: "TEXT DEFAULT 'balanced'",
+      allowedProviders: "TEXT",
+      allowedModels: "TEXT",
+      fallbackSequence: "TEXT",
+      timeoutMs: "INTEGER",
+      usageLimit: "REAL",
+      currentSpend: "REAL DEFAULT 0",
+      isActive: "INTEGER DEFAULT 1",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name)",
+      "CREATE INDEX IF NOT EXISTS idx_projects_active ON projects(isActive)",
+    ],
+  },
+  providerHealth: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      provider: "TEXT NOT NULL",
+      connectionId: "TEXT",
+      model: "TEXT",
+      status: "TEXT NOT NULL",
+      latencyMs: "INTEGER",
+      error: "TEXT",
+      quota: "TEXT",
+      lastTested: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_ph_provider ON providerHealth(provider)",
+      "CREATE INDEX IF NOT EXISTS idx_ph_conn ON providerHealth(connectionId)",
+      "CREATE INDEX IF NOT EXISTS idx_ph_status ON providerHealth(status)",
+      "CREATE INDEX IF NOT EXISTS idx_ph_tested ON providerHealth(lastTested DESC)",
+    ],
+  },
+  customProviders: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      name: "TEXT NOT NULL",
+      baseUrl: "TEXT NOT NULL",
+      apiType: "TEXT DEFAULT 'openai-compatible'",
+      authHeader: "TEXT DEFAULT 'Authorization'",
+      authPrefix: "TEXT DEFAULT 'Bearer '",
+      encryptedApiKey: "TEXT",
+      models: "TEXT",
+      timeoutMs: "INTEGER DEFAULT 60000",
+      customHeaders: "TEXT",
+      modelAliases: "TEXT",
+      responseMapping: "TEXT",
+      isActive: "INTEGER DEFAULT 1",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_cp_active ON customProviders(isActive)",
+    ],
   },
   combos: {
     columns: {
@@ -143,6 +216,15 @@ export const TABLES = {
       model: "TEXT",
       connectionId: "TEXT",
       status: "TEXT",
+      apiKeyId: "TEXT",
+      projectId: "TEXT",
+      requestedModel: "TEXT",
+      selectedModel: "TEXT",
+      routingMode: "TEXT",
+      httpStatus: "INTEGER",
+      errorCategory: "TEXT",
+      totalDuration: "INTEGER",
+      estimatedCost: "REAL DEFAULT 0",
       data: "TEXT NOT NULL",
     },
     indexes: [
@@ -150,6 +232,9 @@ export const TABLES = {
       "CREATE INDEX IF NOT EXISTS idx_rd_provider ON requestDetails(provider)",
       "CREATE INDEX IF NOT EXISTS idx_rd_model ON requestDetails(model)",
       "CREATE INDEX IF NOT EXISTS idx_rd_conn ON requestDetails(connectionId)",
+      "CREATE INDEX IF NOT EXISTS idx_rd_apikey ON requestDetails(apiKeyId)",
+      "CREATE INDEX IF NOT EXISTS idx_rd_project ON requestDetails(projectId)",
+      "CREATE INDEX IF NOT EXISTS idx_rd_status ON requestDetails(status)",
     ],
   },
 };

@@ -19,7 +19,11 @@ export async function GET(request) {
     const status = searchParams.get("status");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
-    
+
+    const apiKeyId = searchParams.get("apiKeyId");
+    const projectId = searchParams.get("projectId");
+    const errorCategory = searchParams.get("errorCategory");
+
     if (page < 1) {
       return NextResponse.json(
         { error: "Page must be >= 1" },
@@ -43,6 +47,9 @@ export async function GET(request) {
     if (model) filter.model = model;
     if (connectionId) filter.connectionId = connectionId;
     if (status) filter.status = status;
+    if (apiKeyId) filter.apiKeyId = apiKeyId;
+    if (projectId) filter.projectId = projectId;
+    if (errorCategory) filter.errorCategory = errorCategory;
     if (startDate) filter.startDate = startDate;
     if (endDate) filter.endDate = endDate;
     

@@ -42,6 +42,34 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
     // Resolve alias to provider ID (e.g., "kc" -> "kilocode")
     const providerId = resolveProviderId(provider);
 
+    // Custom provider support (custom-*)
+    if (typeof providerId === "string" && providerId.startsWith("custom-")) {
+      const { resolveCustomProviderCredentials } = await import("@/lib/customProviders/manager.js");
+      const customCreds = await resolveCustomProviderCredentials(providerId);
+      if (customCreds) {
+        const cId = customCreds.id || providerId;
+        if (excludeSet.has(cId) || excludeSet.has(providerId) || (customCreds.connectionId && excludeSet.has(customCreds.connectionId))) {
+          return null;
+        }
+        return {
+          id: customCreds.id,
+          connectionId: customCreds.id,
+          connectionName: customCreds.connectionName,
+          baseUrl: customCreds.baseUrl,
+          apiKey: customCreds.apiKey,
+          authHeader: customCreds.authHeader,
+          authPrefix: customCreds.authPrefix,
+          customHeaders: customCreds.customHeaders,
+          timeoutMs: customCreds.timeoutMs,
+          isActive: true,
+          providerSpecificData: {
+            baseUrl: customCreds.baseUrl,
+            apiType: "chat",
+          },
+        };
+      }
+    }
+
     // Inject a virtual connection for no-auth free providers (with optional proxy pool from settings)
     if (FREE_PROVIDERS[providerId]?.noAuth) {
       const settings = await getSettings();

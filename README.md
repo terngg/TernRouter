@@ -1,27 +1,37 @@
-<div align="center">
-  <img src="./images/9router.png?1" alt="9Router Dashboard" width="800"/>
-  
-  # 9Router - FREE AI Router & Token Saver
-  
-  **Never stop coding. Save 20-40% tokens with RTK + auto-fallback to FREE & cheap AI models.**
-  
-  **Connect All AI Code Tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) to 40+ AI Providers & 100+ Models.**
-  
-  [![npm](https://img.shields.io/npm/v/9router.svg)](https://www.npmjs.com/package/9router)
-  [![Downloads](https://img.shields.io/npm/dm/9router.svg)](https://www.npmjs.com/package/9router)
-  [![Docker Pulls](https://img.shields.io/docker/pulls/decolua/9router.svg?logo=docker&label=Docker%20pulls)](https://hub.docker.com/r/decolua/9router)
-  [![GHCR](https://img.shields.io/badge/GHCR-decolua%2F9router-blue?logo=github)](https://github.com/decolua/9router/pkgs/container/9router)
-  [![License](https://img.shields.io/npm/l/9router.svg)](https://github.com/decolua/9router/blob/main/LICENSE)
+# TernRouter
 
-<a href="https://trendshift.io/repositories/22628" target="_blank"><img src="https://trendshift.io/api/badge/repositories/22628" alt="decolua%2F9router | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+**TernRouter** is an enhanced fork of 9Router focused on intelligent model routing, provider health, resilient fallback, project-based routing, API-key permissions, and request observability.
 
-[🚀 Quick Start](#-quick-start) • [💡 Features](#-key-features) • [📖 Setup](#-setup-guide) • [🌐 Website](https://9router.com)
+> **Upstream Attribution**: Based on the open-source [9Router](https://github.com/decolua/9router) project by decolua. Original license and copyright notices are fully preserved.
 
-[🇧🇷 Português (Brasil)](./i18n/README.pt-BR.md) • [🇻🇳 Tiếng Việt](./i18n/README.vi.md) • [🇨🇳 中文](./i18n/README.zh-CN.md) • [🇯🇵 日本語](./i18n/README.ja-JP.md) • [🇷🇺 Русский](./i18n/README.ru.md) • [🇹🇭 ไทย](./i18n/README.th.md) • [🇮🇷 فارسی](./i18n/README.fa_IR.md) • [🇮🇩 Indonesia](./i18n/README.id-ID.md) • [🇪🇸 Español](./i18n/README.es.md) • [🇫🇷 Français](./i18n/README.fr.md)
-
-</div>
+Connect all AI coding tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw, etc.) to 40+ AI providers & 100+ models with automated intent-based routing, health monitoring, zero-configuration fallbacks, and real-time observability.
 
 ---
+
+### 🌟 Major Additions in TernRouter
+
+* **Smart Auto Routing**:
+  - `auto` (balanced mode)
+  - `auto/balanced`
+  - `auto/fast`
+  - `auto/cheap`
+  - `auto/quality`
+  - Intent-based routing with automatic detection of vision, tool use, coding tasks, and reasoning intensity.
+* **Provider Health Monitoring**: Continuous status monitoring (`Healthy`, `Slow`, `Rate Limited`, `Quota Low`, `Authentication Failed`, etc.) with one-click **Test All Models** diagnostics, 3-worker concurrency limit pool, and 30-second cooldown protection.
+* **Smart Retry & Fallback**: Classifies errors into retryable vs. deterministic non-retryable, applies jittered exponential backoff, auto-rotates accounts, and cascades across fallback providers with full streaming SSE and non-streaming parity.
+* **API Key Permissions & Scopes**: Granular access control (`allowedProviders`, `allowedModels` wildcard matching, `freeOnly` restriction, request limits, USD spend budget caps, and project bindings).
+* **Project Routing Profiles**: Manage routing strategies, custom fallback sequences, project-specific timeouts, and spend budgets per team or application.
+* **AI Request Inspector & Trace Logging**: Full visibility into request execution pipelines with human-readable route traces (`requested → attempt 1 [fail] → attempt 2 [success]`), latency metrics, TTFT, and privacy-first conversation body redaction.
+* **Custom OpenAI-Compatible Providers**: Connect self-hosted endpoints (vLLM, Ollama, LocalAI) and third-party gateways with AES-256-GCM encrypted secrets at rest and strict SSRF loopback protections.
+* **Configurable Request Timeouts**: Multi-tier timeout resolution (Project > Provider > Global > Baseline) with connection and streaming inactivity watchdogs.
+
+---
+
+<div align="center">
+  <img src="./images/9router.png?1" alt="TernRouter Dashboard" width="800"/>
+
+  [![License](https://img.shields.io/npm/l/9router.svg)](https://github.com/decolua/9router/blob/main/LICENSE)
+</div>
 
 ## 🤔 Why 9Router?
 
@@ -701,12 +711,73 @@ Seamless translation between formats:
 > Think of it as a "savings tracker" showing how much you're saving by using free models or
 > routing through 9Router!
 
-### 🌐 Deploy Anywhere
+### 🤖 Smart Auto Model Routing
 
-- 💻 **Localhost** - Default, works offline
-- ☁️ **VPS/Cloud** - Share across devices
-- 🐳 **Docker** - One-command deployment
-- 🚀 **Cloudflare Workers** - Global edge network
+Route requests automatically using virtual model aliases based on intent analysis and capability matching:
+- **Virtual Models**: `auto` (default/balanced), `auto/balanced`, `auto/fast`, `auto/cheap`, `auto/quality`.
+- **Dynamic Intent Detection**: Inspects incoming messages for code blocks, function/tool declarations, images/vision attachments, and prompt length.
+- **Capability-Driven Ranking**: Evaluates candidates based on verified tool support, vision abilities, reasoning capabilities, context window, provider health, and remaining quota.
+- **Global Toggle**: Can be enabled or disabled globally in Dashboard → Profile Settings.
+
+### ⏱️ Configurable Request Timeouts
+
+Protect connections without prematurely truncating long reasoning or coding tasks:
+- **Hierarchical Resolution**: Project timeout > Provider-specific override > Global timeout > Default baseline.
+- **Watchdog Protection**:
+  - `connectTimeoutMs`: Prevents stalled TCP handshakes (default: 15s).
+  - `upstreamTimeoutMs`: Guards overall generation time (default: 120s; boosted for reasoning models).
+  - `streamInactivityMs`: Streaming watchdog aborts dropped SSE connections if no chunks arrive (default: 30s).
+- **Safe Bounds**: Values clamped between 3s and 30m to prevent service freezes.
+
+### 🔑 API Key Scopes & Permissions
+
+Server-side RBAC and granular authorization for generated 9Router API keys:
+- **Allowed Providers**: Restrict key usage to specific providers (e.g. `google`, `anthropic`).
+- **Allowed Models**: Restrict to specific models or wildcards (e.g. `claude-*`, `gemini-1.5-*`).
+- **Free/Paid Restrictions**: Enforce `freeOnly` mode to guarantee keys never consume paid quota.
+- **Usage & Spend Limits**: Enforce maximum requests (`requestLimit`) and USD budget caps (`usageLimit`).
+- **Project Binding**: Bind API keys directly to project routing profiles.
+
+### 🔌 Custom Provider Adapter
+
+Connect any OpenAI-compatible AI gateway or local inference server without altering source code:
+- **Configuration**: Endpoint Base URL, API Key / custom authorization headers, and supported model lists.
+- **Security & SSRF Guard**:
+  - Automatically blocks private/loopback IPs (e.g. `127.0.0.1`, `10.0.0.0/8`, `192.168.0.0/16`) and cloud metadata endpoints (`169.254.169.254`).
+  - Restricts protocols to `http` and `https`.
+  - Encrypts provider secrets at rest using **AES-256-GCM**.
+  - Zero token leakage in logs or client-facing responses.
+- **Test Connection**: One-click verification reporting status code, latency, discovered models, and error diagnosis.
+
+### 🔍 AI Request Inspector & Route Trace
+
+Full observability into the complete routing and fallback pipeline:
+- **Route Visualization**: Clear human-readable route string for every request (e.g. `auto/quality → google/gemini-1.5-pro (acc-1) [429] → anthropic/claude-3-5-sonnet (acc-2) [success]`).
+- **Trace Inspector Drawer**: Inspect latency, time-to-first-token (TTFT), prompt/completion tokens, cached tokens, estimated cost, HTTP status, and fallback attempts.
+- **Privacy By Default**: Message bodies and completions are automatically redacted in inspector listings to safeguard user confidentiality.
+
+### 🩺 Provider Health Dashboard & Test All Models
+
+Continuous health tracking across all configured providers and models:
+- **States**: `Healthy`, `Slow`, `Rate Limited`, `Quota Low`, `Quota Exhausted`, `Authentication Failed`, `Timeout`, `Provider Error`, `Disabled`, and `Unknown`.
+- **Inexpensive Probing**: Minimal ping requests avoid burning unnecessary user quotas.
+- **Abuse Prevention**: 3-worker concurrency limit pool and 30-second cooldown cache.
+- **Routing Integration**: Unhealthy providers are automatically deprioritized by Smart Routing and Fallback logic.
+
+### 📁 Per-Project Routing Profiles
+
+Configure reusable routing policies and team budgets:
+- **Custom Policies**: Primary model, ordered fallback sequence, routing mode, and allowed providers/models.
+- **Budget Caps**: Define spend limits per project; requests automatically reject when limit is exceeded.
+- **Seamless Key Binding**: Assign API keys to projects to enforce project-specific policies automatically.
+
+### 🔄 Smart Retry & Fallback Engine
+
+Resilient failure handling across multiple accounts and providers:
+- **Error Classification**: Distinguishes deterministic bad requests (HTTP 400, model not found) from retryable issues (HTTP 408, 429, 503, connection drops, stream stalls).
+- **Jittered Exponential Backoff**: Prevents retry storms and upstream thundering herds.
+- **Smart Rotation**: Tries alternative accounts for the same model, then cascades to configured project or model fallbacks.
+- **Full Streaming & Non-Streaming Parity**: Guaranteed fallback support across both streaming SSE and standard JSON completions.
 
 </details>
 

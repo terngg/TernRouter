@@ -39,7 +39,7 @@ const DEFAULT_SETTINGS = {
   samlLoginLabel: "Sign in with SAML SSO",
   samlAttributeEmail: "email",
   samlAttributeName: "name",
-  enableObservability: false,
+  enableObservability: true,
   observabilityMaxRecords: 1000,
   observabilityBatchSize: 20,
   observabilityFlushIntervalMs: 5000,
@@ -62,6 +62,13 @@ const DEFAULT_SETTINGS = {
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,
   pxpipeTimeoutMs: 15000,
+  enableAutoRouting: true,
+  autoRoutingDefaultMode: "balanced",
+  requestTimeoutGlobalMs: 120000,
+  requestTimeoutConnectMs: 30000,
+  requestTimeoutStreamingStallMs: 360000,
+  providerTimeouts: {},
+  modelTimeouts: {},
 };
 
 async function readRaw() {

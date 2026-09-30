@@ -1,8 +1,8 @@
 export default function manifest() {
   return {
-    name: '9Router - AI Infrastructure Management',
-    short_name: '9Router',
-    description: 'One endpoint for all your AI providers. Manage keys, monitor usage, and scale effortlessly.',
+    name: 'TernRouter - Intelligent Multi-Provider AI Router',
+    short_name: 'TernRouter',
+    description: 'Intelligent multi-provider AI router with smart routing, health monitoring, resilient fallback, project profiles, and request observability.',
     start_url: '/',
     display: 'standalone',
     background_color: '#0a0a0a',

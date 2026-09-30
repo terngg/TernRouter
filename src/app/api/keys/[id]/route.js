@@ -11,7 +11,7 @@ export async function GET(request, { params }) {
     }
     return NextResponse.json({ key });
   } catch (error) {
-    console.log("Error fetching key:", error);
+    console.error("Error fetching key:", error);
     return NextResponse.json({ error: "Failed to fetch key" }, { status: 500 });
   }
 }
@@ -21,7 +21,7 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { isActive } = body;
+    const { isActive, name, permissions, projectId } = body;
 
     const existing = await getApiKeyById(id);
     if (!existing) {
@@ -30,12 +30,15 @@ export async function PUT(request, { params }) {
 
     const updateData = {};
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (name !== undefined) updateData.name = name;
+    if (permissions !== undefined) updateData.permissions = permissions;
+    if (projectId !== undefined) updateData.projectId = projectId;
 
     const updated = await updateApiKey(id, updateData);
 
     return NextResponse.json({ key: updated });
   } catch (error) {
-    console.log("Error updating key:", error);
+    console.error("Error updating key:", error);
     return NextResponse.json({ error: "Failed to update key" }, { status: 500 });
   }
 }
@@ -52,7 +55,7 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({ message: "Key deleted successfully" });
   } catch (error) {
-    console.log("Error deleting key:", error);
+    console.error("Error deleting key:", error);
     return NextResponse.json({ error: "Failed to delete key" }, { status: 500 });
   }
 }

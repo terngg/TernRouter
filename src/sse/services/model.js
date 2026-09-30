@@ -39,6 +39,9 @@ export async function getModelInfo(modelStr) {
   const parsed = parseModel(modelStr);
 
   if (!parsed.isAlias) {
+    if (parsed.providerAlias && parsed.providerAlias.startsWith("custom-")) {
+      return { provider: parsed.providerAlias, model: parsed.model };
+    }
     // Provider-node prefixes are user-defined. They must not override built-in
     // provider ids/aliases such as `cf`, `cloudflare-ai`, `openai`, or `hf`.
     if (!RESERVED_PROVIDER_PREFIXES.has(parsed.providerAlias)) {

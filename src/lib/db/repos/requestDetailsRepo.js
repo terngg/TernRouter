@@ -1,5 +1,6 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
+import { getSettings } from "./settingsRepo.js";
 
 const DEFAULT_MAX_RECORDS = 200;
 const DEFAULT_BATCH_SIZE = 20;
@@ -13,7 +14,6 @@ let cachedConfigTs = 0;
 async function getObservabilityConfig() {
   if (cachedConfig && (Date.now() - cachedConfigTs) < CONFIG_CACHE_TTL_MS) return cachedConfig;
   try {
-    const { getSettings } = await import("./settingsRepo.js");
     const settings = await getSettings();
     const envRequestLogs = process.env.ENABLE_REQUEST_LOGS;
     if (envRequestLogs !== undefined) {
@@ -41,12 +41,13 @@ async function getObservabilityConfig() {
       flushIntervalMs: settings.observabilityFlushIntervalMs || parseInt(process.env.OBSERVABILITY_FLUSH_INTERVAL_MS || String(DEFAULT_FLUSH_INTERVAL_MS), 10),
       maxJsonSize: (settings.observabilityMaxJsonSize || parseInt(process.env.OBSERVABILITY_MAX_JSON_SIZE || "5", 10)) * 1024,
     };
-  } catch {
+  } catch (e) {
+    console.error("[getObservabilityConfig error]:", e);
     cachedConfig = {
-      enabled: false,
+      enabled: true,
       maxRecords: DEFAULT_MAX_RECORDS,
-      batchSize: DEFAULT_BATCH_SIZE,
-      flushIntervalMs: DEFAULT_FLUSH_INTERVAL_MS,
+      batchSize: 1, // Flush immediately in fallback
+      flushIntervalMs: 1000,
       maxJsonSize: DEFAULT_MAX_JSON_SIZE,
     };
   }
@@ -102,6 +103,16 @@ async function flushToDatabase() {
           if (!item.timestamp) item.timestamp = new Date().toISOString();
           if (item.request?.headers) item.request.headers = sanitizeHeaders(item.request.headers);
 
+          const apiKeyId = item.apiKeyId || item.apiKey || null;
+          const projectId = item.projectId || null;
+          const requestedModel = item.requestedModel || item.model || null;
+          const selectedModel = item.selectedModel || item.model || null;
+          const routingMode = item.routingMode || null;
+          const httpStatus = item.httpStatus != null ? Number(item.httpStatus) : (item.response?.status != null ? Number(item.response.status) : null);
+          const errorCategory = item.errorCategory || null;
+          const totalDuration = item.totalDuration != null ? Number(item.totalDuration) : (item.latency?.total != null ? Number(item.latency.total) : null);
+          const estimatedCost = item.estimatedCost != null ? Number(item.estimatedCost) : (item.cost != null ? Number(item.cost) : 0);
+
           const record = {
             id: item.id,
             provider: item.provider || null,
@@ -109,8 +120,21 @@ async function flushToDatabase() {
             connectionId: item.connectionId || null,
             timestamp: item.timestamp,
             status: item.status || null,
+            apiKeyId,
+            projectId,
+            requestedModel,
+            selectedModel,
+            routingMode,
+            httpStatus,
+            errorCategory,
+            totalDuration,
+            estimatedCost,
             latency: item.latency || {},
             tokens: item.tokens || {},
+            routingTrace: item.routingTrace || [],
+            routeVisualization: item.routeVisualization || null,
+            streamed: item.streamed !== undefined ? item.streamed : item.request?.stream,
+            retryCount: item.retryCount || 0,
             request: truncateField(item.request, config.maxJsonSize),
             providerRequest: truncateField(item.providerRequest, config.maxJsonSize),
             providerResponse: truncateField(item.providerResponse, config.maxJsonSize),
@@ -119,8 +143,45 @@ async function flushToDatabase() {
           };
 
           db.run(
-            `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, data = excluded.data`,
-            [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.status, stringifyJson(record)]
+            `INSERT INTO requestDetails(
+               id, timestamp, provider, model, connectionId, status,
+               apiKeyId, projectId, requestedModel, selectedModel,
+               routingMode, httpStatus, errorCategory, totalDuration, estimatedCost, data
+             ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+               timestamp = excluded.timestamp,
+               provider = excluded.provider,
+               model = excluded.model,
+               connectionId = excluded.connectionId,
+               status = excluded.status,
+               apiKeyId = excluded.apiKeyId,
+               projectId = excluded.projectId,
+               requestedModel = excluded.requestedModel,
+               selectedModel = excluded.selectedModel,
+               routingMode = excluded.routingMode,
+               httpStatus = excluded.httpStatus,
+               errorCategory = excluded.errorCategory,
+               totalDuration = excluded.totalDuration,
+               estimatedCost = excluded.estimatedCost,
+               data = excluded.data`,
+            [
+              record.id,
+              record.timestamp,
+              record.provider,
+              record.model,
+              record.connectionId,
+              record.status,
+              record.apiKeyId,
+              record.projectId,
+              record.requestedModel,
+              record.selectedModel,
+              record.routingMode,
+              record.httpStatus,
+              record.errorCategory,
+              record.totalDuration,
+              record.estimatedCost,
+              stringifyJson(record),
+            ]
           );
         }
 
@@ -160,14 +221,22 @@ export async function saveRequestDetail(detail) {
 }
 
 export async function getRequestDetails(filter = {}) {
+  if (writeBuffer.length > 0) {
+    try {
+      await flushToDatabase();
+    } catch {}
+  }
   const db = await getAdapter();
   const conds = [];
   const params = [];
 
   if (filter.provider) { conds.push("provider = ?"); params.push(filter.provider); }
-  if (filter.model) { conds.push("model = ?"); params.push(filter.model); }
+  if (filter.model) { conds.push("(model = ? OR requestedModel = ? OR selectedModel = ?)"); params.push(filter.model, filter.model, filter.model); }
   if (filter.connectionId) { conds.push("connectionId = ?"); params.push(filter.connectionId); }
   if (filter.status) { conds.push("status = ?"); params.push(filter.status); }
+  if (filter.apiKeyId) { conds.push("apiKeyId = ?"); params.push(filter.apiKeyId); }
+  if (filter.projectId) { conds.push("projectId = ?"); params.push(filter.projectId); }
+  if (filter.errorCategory) { conds.push("errorCategory = ?"); params.push(filter.errorCategory); }
   if (filter.startDate) { conds.push("timestamp >= ?"); params.push(new Date(filter.startDate).toISOString()); }
   if (filter.endDate) { conds.push("timestamp <= ?"); params.push(new Date(filter.endDate).toISOString()); }
 

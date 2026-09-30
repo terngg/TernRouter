@@ -29,8 +29,23 @@ export {
 
 // API keys
 export {
-  getApiKeys, getApiKeyById, createApiKey, updateApiKey, deleteApiKey, validateApiKey,
+  getApiKeys, getApiKeyById, getApiKeyByKey, createApiKey, updateApiKey, deleteApiKey, validateApiKey, incrementKeyUsage,
 } from "./repos/apiKeysRepo.js";
+
+// Projects (routing profiles)
+export {
+  getProjects, getProjectById, getProjectByName, createProject, updateProject, deleteProject, incrementProjectSpend,
+} from "./repos/projectsRepo.js";
+
+// Provider health
+export {
+  upsertProviderHealth, getAllProviderHealth, getProviderHealth, getUnhealthyTargets, deleteProviderHealth, buildHealthId,
+} from "./repos/providerHealthRepo.js";
+
+// Custom providers
+export {
+  getCustomProviders, getCustomProviderById, createCustomProvider, updateCustomProvider, deleteCustomProvider,
+} from "./repos/customProvidersRepo.js";
 
 // Combos
 export {

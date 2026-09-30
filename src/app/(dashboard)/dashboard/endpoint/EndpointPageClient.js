@@ -23,6 +23,15 @@ export default function APIPageClient({ machineId }) {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyPermissions, setNewKeyPermissions] = useState({
+    allowedProviders: "",
+    allowedModels: "",
+    freeOnly: false,
+    requestLimit: "",
+    usageLimit: "",
+    projectId: "",
+  });
+  const [projectsList, setProjectsList] = useState([]);
   const [createdKey, setCreatedKey] = useState(null);
   const [confirmState, setConfirmState] = useState(null);
 
@@ -617,11 +626,32 @@ export default function APIPageClient({ machineId }) {
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) return;
 
+    const permissions = {};
+    if (newKeyPermissions.allowedProviders.trim()) {
+      permissions.allowedProviders = newKeyPermissions.allowedProviders.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+    if (newKeyPermissions.allowedModels.trim()) {
+      permissions.allowedModels = newKeyPermissions.allowedModels.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+    if (newKeyPermissions.freeOnly) {
+      permissions.freeOnly = true;
+    }
+    if (newKeyPermissions.requestLimit) {
+      permissions.requestLimit = Number(newKeyPermissions.requestLimit);
+    }
+    if (newKeyPermissions.usageLimit) {
+      permissions.usageLimit = Number(newKeyPermissions.usageLimit);
+    }
+
     try {
       const res = await fetch("/api/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newKeyName }),
+        body: JSON.stringify({
+          name: newKeyName.trim(),
+          permissions: Object.keys(permissions).length > 0 ? permissions : null,
+          projectId: newKeyPermissions.projectId || null,
+        }),
       });
       const data = await res.json();
 
@@ -629,6 +659,14 @@ export default function APIPageClient({ machineId }) {
         setCreatedKey(data.key);
         await fetchData();
         setNewKeyName("");
+        setNewKeyPermissions({
+          allowedProviders: "",
+          allowedModels: "",
+          freeOnly: false,
+          requestLimit: "",
+          usageLimit: "",
+          projectId: "",
+        });
         setShowAddModal(false);
       }
     } catch (error) {
@@ -1028,9 +1066,41 @@ export default function APIPageClient({ machineId }) {
                       </span>
                     </button>
                   </div>
-                  <p className="text-xs text-text-muted mt-1">
-                    Created {new Date(key.createdAt).toLocaleDateString()}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                    <span className="text-xs text-text-muted">
+                      Created {new Date(key.createdAt).toLocaleDateString()}
+                    </span>
+                    {key.requestCount > 0 && (
+                      <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/5 text-text-muted">
+                        {key.requestCount} requests
+                      </span>
+                    )}
+                    {key.permissions?.allowedProviders && key.permissions.allowedProviders.length > 0 && (
+                      <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                        Providers: {key.permissions.allowedProviders.join(", ")}
+                      </span>
+                    )}
+                    {key.permissions?.freeOnly && (
+                      <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        Free Only
+                      </span>
+                    )}
+                    {key.permissions?.requestLimit > 0 && (
+                      <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                        Limit: {key.permissions.requestLimit} reqs
+                      </span>
+                    )}
+                    {key.permissions?.usageLimit > 0 && (
+                      <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                        Cap: ${key.permissions.usageLimit}
+                      </span>
+                    )}
+                    {key.projectId && (
+                      <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                        Project: {key.projectId.slice(0, 8)}...
+                      </span>
+                    )}
+                  </div>
                   {key.isActive === false && (
                     <p className="text-xs text-orange-500 mt-1">Paused</p>
                   )}
@@ -1071,22 +1141,102 @@ export default function APIPageClient({ machineId }) {
       {/* Add Key Modal */}
       <Modal
         isOpen={showAddModal}
-        title="Create API Key"
+        title="Create Scoped API Key"
         onClose={() => {
           setShowAddModal(false);
           setNewKeyName("");
+          setNewKeyPermissions({
+            allowedProviders: "",
+            allowedModels: "",
+            freeOnly: false,
+            requestLimit: "",
+            usageLimit: "",
+            projectId: "",
+          });
         }}
       >
         <div className="flex flex-col gap-4">
           <Input
-            label="Key Name"
+            label="Key Name *"
             value={newKeyName}
             onChange={(e) => setNewKeyName(e.target.value)}
-            placeholder="Production Key"
+            placeholder="e.g. Gemini Only, Tern CLI Agent, Staging"
           />
-          <div className="flex gap-2">
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-text-main">Allowed Providers (optional, comma-separated)</label>
+            <Input
+              value={newKeyPermissions.allowedProviders}
+              onChange={(e) => setNewKeyPermissions({ ...newKeyPermissions, allowedProviders: e.target.value })}
+              placeholder="e.g. gemini, anthropic"
+            />
+            <p className="text-[11px] text-text-muted">Restrict this key to specific providers only.</p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-text-main">Allowed Models (optional, comma-separated)</label>
+            <Input
+              value={newKeyPermissions.allowedModels}
+              onChange={(e) => setNewKeyPermissions({ ...newKeyPermissions, allowedModels: e.target.value })}
+              placeholder="e.g. gemini-2.5-flash, gpt-4o-mini"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-text-main">Request Limit (total)</label>
+              <Input
+                type="number"
+                value={newKeyPermissions.requestLimit}
+                onChange={(e) => setNewKeyPermissions({ ...newKeyPermissions, requestLimit: e.target.value })}
+                placeholder="e.g. 1000"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-text-main">Budget Cap ($ USD)</label>
+              <Input
+                type="number"
+                step="0.01"
+                value={newKeyPermissions.usageLimit}
+                onChange={(e) => setNewKeyPermissions({ ...newKeyPermissions, usageLimit: e.target.value })}
+                placeholder="e.g. 10.00"
+              />
+            </div>
+          </div>
+
+          {projectsList.length > 0 && (
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-text-main">Assign to Project Profile</label>
+              <select
+                value={newKeyPermissions.projectId}
+                onChange={(e) => setNewKeyPermissions({ ...newKeyPermissions, projectId: e.target.value })}
+                className="h-10 w-full rounded-lg border border-black/10 bg-surface px-3 text-sm text-text-main dark:border-white/10"
+              >
+                <option value="">No Project (Global)</option>
+                {projectsList.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="free-only-checkbox"
+              checked={newKeyPermissions.freeOnly}
+              onChange={(e) => setNewKeyPermissions({ ...newKeyPermissions, freeOnly: e.target.checked })}
+              className="rounded border-black/20"
+            />
+            <label htmlFor="free-only-checkbox" className="text-xs text-text-main cursor-pointer font-medium">
+              Free models only (blocks paid models)
+            </label>
+          </div>
+
+          <div className="flex gap-2 pt-3 border-t border-black/5 dark:border-white/5">
             <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
-              Create
+              Create Key
             </Button>
             <Button
               onClick={() => {
